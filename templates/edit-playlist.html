@@ -1,0 +1,50 @@
+{% extends 'base.html'%} {% block content %}
+<div class="row">
+    <form action="{{ url_for('editplaylist') }}" method="POST" class="col s12">
+        <div class="row">
+            <div class="input-field col s12">
+                <input type="hidden" id="playlist_id" name="playlist_id" value="{{ playlist.playlist_id }}" type="text" class="validate">
+            </div>
+        </div>
+        <div class="row">
+            <div class="input-field col s12">
+                <input placeholder="Enter video title" value="{{ playlist.title }}" name="title" id="title" type="text" class="validate">
+                <label for="title">Title</label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="input-field col s12">
+                <input placeholder="Enter video description" value="{{ playlist.description }}" name="description" id="description" type="text" class="validate">
+                <label for="description">Description</label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="input-field col s12">
+                <input placeholder="Enter image link address" value="{{ playlist.img_source }}" name="image" id="image" type="text" class="validate">
+                <label for="image">Image Link</label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="input-field col s12">
+                <input placeholder="Enter video link address" value="{{ playlist.video_source }}" name="video" id="video" type="text" class="validate">
+                <label for="video">Video Link</label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="input-field col s12">
+                <select name="category_id">
+                  {% for cat in categories %}
+                      {% if playlist.category_id == cat.category_id %}
+                      <option selected value="{{cat.category_id}}">{{cat.category_name}}</option>
+                      {% else %}
+                      <option value="{{cat.category_id}}">{{cat.category_name}}</option>
+                      {% endif %}
+                  {% endfor %}
+                </select>
+                <label>Category</label>
+            </div>
+        </div>
+         <button autofocus class="waves-effect waves-light btn right play_button"><i class="material-icons right">save</i>Save</a>
+    </form>
+</div>
+{% endblock %}
