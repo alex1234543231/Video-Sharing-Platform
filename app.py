@@ -2,9 +2,13 @@ import os
 import pymysql
 import db
 from flask import Flask, render_template, request, redirect
+from jinja2.ext import loopcontrols
 
 app = Flask(__name__)
 
+app.jinja_env.add_extension('jinja2.ext.loopcontrols')
+
+app.jinja_env.globals.update(get_votes=db.calcVotes)
 
 @app.route('/')
 def index():
@@ -37,7 +41,7 @@ def check():
                 
                 user_name = db.getLogin()
                 
-                return redirect('/{}'.format(username))
+                return redirect('/feed')
           
           else:
               return render_template('login.html')
@@ -63,8 +67,8 @@ def dashboard(username):
     return render_template('dashboard.html', username=username, playlists=playlists)
     
     
-@app.route('/home')
-def home():
+@app.route('/profile')
+def profile():
     
     try:
         user_name = db.getLogin()
@@ -73,6 +77,20 @@ def home():
     
     return redirect('/{}'.format(user_name))
     
+@app.route('/feed')
+def feed():
+    
+    try:
+        user_name = db.getLogin()
+        userid = db.getUserId(user_name)
+        videos = db.getOtherVideos(userid)
+        votes = db.getVotes()
+
+    except Exception as e:
+        print("Exception: {}".format(e))
+        return redirect('/')
+    
+    return render_template('videos.html',videos=videos, username=user_name, votes=votes)
     
 @app.route('/new-playlist')
 def newplaylist():
@@ -90,6 +108,9 @@ def newplaylist():
 @app.route('/add-playlist', methods=['GET','POST'])
 def addplaylist():
     
+    # Original Poster
+    origin = "true"
+    
     try:
         user_name = db.getLogin()
     except: 
@@ -105,8 +126,9 @@ def addplaylist():
         video = form['video']
         category = form['category_id']
         
+        
         try:
-            db.addPlaylist(userid, title, description, image, video, category)
+            db.addPlaylist(userid, title, description, image, video, category, origin)
         finally:
             return redirect('/{}'.format(user_name))
     
@@ -130,6 +152,109 @@ def edit(playlistid):
         
     return render_template('edit-playlist.html', playlist=playlist,categories=categories)
     
+@app.route('/downvote/<playlistid>')
+def downvote(playlistid):
+    
+    vote = -1
+    
+    try:
+        user_name = db.getLogin()
+        userid = db.getUserId(user_name)
+        db.vote(playlistid, userid, vote)
+    except: 
+        redirect('/')   
+    finally:
+        return redirect('/feed')
+    
+@app.route('/upvote/<playlistid>')
+def upvote(playlistid):
+    
+    vote = 1
+    
+    try:
+        user_name = db.getLogin()
+        userid = db.getUserId(user_name)
+        db.vote(playlistid, userid, vote)
+    except: 
+        redirect('/')   
+    finally:
+        return redirect('/feed')
+    
+    
+@app.route('/repost/<playlistid>')
+def repost(playlistid):
+    
+    # Not Original Post
+    origin = "false"
+    
+    try:
+        user_name = db.getLogin()
+        userid = db.getUserId(user_name)
+        playlist = db.getPlaylistById(playlistid)
+        
+        title = playlist['title']
+        description = playlist['description']
+        img_source = playlist['img_source']
+        video_source = playlist['video_source']
+        category_id = playlist['category_id']
+        
+        db.addPlaylist(userid, title, description, img_source, video_source, category_id, origin)
+        
+        
+    finally:
+        return redirect('/{}'.format(user_name))
+        
+    
+@app.route('/order-by/category/<category_name>')     
+def ordercategory(category_name):
+    
+    profile = False
+    
+    try:
+        user_name = db.getLogin()
+        userid = db.getUserId(user_name)
+        category_id = db.getCategoryByName(category_name)
+        
+        ordered = db.orderByCategory(category_id, userid, profile)
+        return render_template('videos.html',videos=ordered, username=user_name)
+
+    except Exception as e:
+        print("Exception: {}".format(e))
+        return redirect('/')
+        
+@app.route('/order-by/my-profile/category/<category_name>')     
+def orderprofilecategory(category_name):
+    
+    profile = True
+    
+    try:
+        user_name = db.getLogin()
+        userid = db.getUserId(user_name)
+        category_id = db.getCategoryByName(category_name)
+        
+        ordered = db.orderByCategory(category_id, userid, profile)
+        return render_template('dashboard.html', playlists=ordered, username=user_name)
+
+    except Exception as e:
+        print("Exception: {}".format(e))
+        return redirect('/')
+        
+        
+@app.route('/order-by/user/<user_name>')     
+def orderuser(user_name):
+    
+    try:
+        my_username = db.getLogin()
+        my_id = db.getUserId(my_username)
+        users_id = db.getUserId(user_name)
+
+        ordered = db.orderByUser(users_id, my_id)
+        return render_template('videos.html',videos=ordered, username=my_username)
+
+    except Exception as e:
+        print("Exception: {}".format(e))
+        return redirect('/')
+        
     
 @app.route('/edit-playlist', methods=['GET','POST'])
 def editplaylist():
@@ -151,6 +276,8 @@ def editplaylist():
 
 
 if __name__ == '__main__':
-    app.run(host=os.environ.get('IP'),
-        port=int(os.environ.get('PORT')),
+    host = "127.0.0.1"
+    port = 5000
+    app.run(host,
+        port,
         debug=True)
