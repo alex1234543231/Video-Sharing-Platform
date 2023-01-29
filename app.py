@@ -1,14 +1,13 @@
 import os
 import pymysql
 import db
+
 from flask import Flask, render_template, request, redirect
-from jinja2.ext import loopcontrols
+from jinja2.ext import loopcontrols, Extension
 
 app = Flask(__name__)
 
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
-
-app.jinja_env.globals.update(get_votes=db.calcVotes)
 
 @app.route('/')
 def index():
@@ -16,6 +15,7 @@ def index():
     db.setLogin('')
     
     return render_template('login.html')
+    
     
 @app.route('/check-user/', methods=['GET','POST'])
 def check():
@@ -25,29 +25,22 @@ def check():
         username = form['username']
         password = form['password']
         
-        connection = db.database()
-        
-    try:
-        with connection.cursor() as cursor:
-          sql = "SELECT username FROM users WHERE username ='{0}' AND password ='{1}'".format(username, password)
-          cursor.execute(sql)
-          result = cursor.fetchone()
-          
-          if result:
-            user = str(result[0])
+        try:
+            result = db.authenticate(username,password)
             
-            if username == user:
-                db.setLogin(username)
-                
-                user_name = db.getLogin()
-                
-                return redirect('/feed')
+            if result:
+                user = str(result[0])
+            
+                if username == user:
+                    db.setLogin(username)
+                    return redirect('/feed')
           
-          else:
-              return render_template('login.html')
-          
-    finally:
-        connection.close()
+            else:
+                return render_template('login.html')
+            
+        except Exception as e:
+            print(e)
+
     
     return render_template('login.html')
         
@@ -58,13 +51,18 @@ def dashboard(username):
         user_name = db.getLogin()
         userid = db.getUserId(user_name)
         playlists = db.getMyPlaylist(userid)
+        votes = db.getAllVotes()
     except: 
         return redirect('/')
 
     if user_name != username:
         return redirect('/')
     
-    return render_template('dashboard.html', username=username, playlists=playlists)
+    return render_template('dashboard.html',
+    username=username,
+    playlists=playlists,
+    votes=votes,
+    get_votes=db.calcVotes)
     
     
 @app.route('/profile')
@@ -84,13 +82,19 @@ def feed():
         user_name = db.getLogin()
         userid = db.getUserId(user_name)
         videos = db.getOtherVideos(userid)
-        votes = db.getVotes()
+        votes = db.getAllVotes()
 
     except Exception as e:
         print("Exception: {}".format(e))
         return redirect('/')
     
-    return render_template('videos.html',videos=videos, username=user_name, votes=votes)
+    return render_template('videos.html',
+    videos=videos,
+    username=user_name,
+    votes=votes,
+    userid=userid,
+    get_votes=db.calcVotes,
+    check_voted=db.checkVote)
     
 @app.route('/new-playlist')
 def newplaylist():
@@ -214,13 +218,21 @@ def ordercategory(category_name):
         user_name = db.getLogin()
         userid = db.getUserId(user_name)
         category_id = db.getCategoryByName(category_name)
-        
+        votes = db.getAllVotes()
+
         ordered = db.orderByCategory(category_id, userid, profile)
-        return render_template('videos.html',videos=ordered, username=user_name)
+        return render_template('videos.html',
+        videos=ordered, 
+        username=user_name,
+        votes=votes,
+        userid=userid,
+        get_votes=db.calcVotes,
+        check_voted=db.checkVote)
 
     except Exception as e:
         print("Exception: {}".format(e))
-        return redirect('/')
+        # return redirect('/')
+        return
         
 @app.route('/order-by/my-profile/category/<category_name>')     
 def orderprofilecategory(category_name):
@@ -231,13 +243,40 @@ def orderprofilecategory(category_name):
         user_name = db.getLogin()
         userid = db.getUserId(user_name)
         category_id = db.getCategoryByName(category_name)
-        
-        ordered = db.orderByCategory(category_id, userid, profile)
-        return render_template('dashboard.html', playlists=ordered, username=user_name)
+        votes = db.getAllVotes()
 
     except Exception as e:
         print("Exception: {}".format(e))
         return redirect('/')
+        
+    finally:
+         ordered = db.orderByCategory(category_id, userid, profile)
+         return render_template('dashboard.html', 
+         playlists=ordered, 
+         username=user_name,
+         votes=votes,
+         get_votes=db.calcVotes)
+         
+         
+@app.route('/order-by/my-profile/saved/<status>')     
+def ordersaved(status):
+    
+    try:
+        user_name = db.getLogin()
+        userid = db.getUserId(user_name)
+        votes = db.getAllVotes()
+
+    except Exception as e:
+        print("Exception: {}".format(e))
+        return redirect('/')
+        
+    finally:
+         ordered = db.orderBySaved(userid, status)
+         return render_template('dashboard.html', 
+         playlists=ordered, 
+         username=user_name,
+         votes=votes,
+         get_votes=db.calcVotes)         
         
         
 @app.route('/order-by/user/<user_name>')     
@@ -247,13 +286,22 @@ def orderuser(user_name):
         my_username = db.getLogin()
         my_id = db.getUserId(my_username)
         users_id = db.getUserId(user_name)
-
-        ordered = db.orderByUser(users_id, my_id)
-        return render_template('videos.html',videos=ordered, username=my_username)
+        votes = db.getAllVotes()
 
     except Exception as e:
         print("Exception: {}".format(e))
-        return redirect('/')
+        # return redirect('/')
+        return
+    
+    finally:
+        ordered = db.orderByUser(users_id, my_id)
+        return render_template('videos.html',
+        videos=ordered, 
+        username=my_username,
+        votes=votes,
+        userid=my_id,
+        get_votes=db.calcVotes,
+        check_voted=db.checkVote)
         
     
 @app.route('/edit-playlist', methods=['GET','POST'])

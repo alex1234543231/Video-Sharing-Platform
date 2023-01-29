@@ -1,7 +1,7 @@
 {% extends 'base.html'%} {% block content %}
 <div class="row">
     {% for video in videos %}
-    <div class="col-md-4">
+    <div class="col-lg-4 col-md-12">
         <div class="card">
             <div class="card-image waves-effect waves-block waves-light">
                 <img class="activator" src="{{ video.img_source }}">
@@ -10,18 +10,28 @@
                 <span class="card-title activator grey-text text-darken-4">{{ video.title }}<i class="material-icons right">more_vert</i></span>
                 <hr />
                 <p><strong>Category: </strong><a href="/order-by/category/{{ video.category_name }}">{{ video.category_name }}</a></p>
-                <br />
                 <div class="card_button">
                     <a href="{{ video.video_source }}" target="_blank" class="waves-effect waves-light btn play_button"><i class="material-icons right">play_circle_filled</i>Watch</a>
                 </div>
                 <br />
                 <a href="/repost/{{ video.playlist_id }}" alt="Repost"><i class="material-icons">save</i></a>
+                {% set voted = check_voted(userid, video.playlist_id) %}
+                {% if voted == 0 %}
                 <a href="/downvote/{{ video.playlist_id }}" alt="DownVote"><i class="down-vote material-icons">arrow_downward</i></a>
                 <a href="/upvote/{{ video.playlist_id }}" alt="UpVote"><i class="up-vote material-icons">arrow_upward</i></a>
+                {% else %}
+                    {% if voted == 1 %}
+                    <i class="up-vote material-icons">arrow_upward</i>
+                    {% else %}
+                    <i class="done-vote material-icons">arrow_down</i>
+                    {% endif %}
+                {% endif %}
                 <hr />
+                {% set total = 0 %}
                 {% for vote in votes %} 
                 {% if vote.playlist_id == video.playlist_id %}
-                <p class="left"><strong>Votes: </strong>{{ get_votes(video.playlist_id) }}</p>
+                {% set total = (total + get_votes(vote.playlist_id)) %}
+                <p class="left"><strong>Votes: </strong>{{ total }}</p>
                 {% break %}
                 {% endif %} {% endfor %}
                 <p class="right"><strong>Posted By: </strong><a href="/order-by/user/{{ video.username }}">{{ video.username }}</a></p>
