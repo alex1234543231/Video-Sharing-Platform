@@ -11,11 +11,29 @@ app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
 @app.route('/')
 def index():
-    #Clean the Login Variable
-    db.setLogin('')
-    
     return render_template('login.html')
     
+@app.route('/register')
+def register():
+    return render_template('register.html')
+
+@app.route('/register-user/', methods=['GET','POST'])
+def regcheck():
+    
+    if request.method == 'POST':
+        form = request.form
+        username = form['username']
+        password = form['password']
+        
+        try:
+           db.register(username,password)
+            
+        except Exception as e:
+            print(e)
+
+        finally:
+            return render_template('login.html')
+            
     
 @app.route('/check-user/', methods=['GET','POST'])
 def check():
@@ -30,7 +48,6 @@ def check():
             
             if result:
                 user = str(result[0])
-            
                 if username == user:
                     db.setLogin(username)
                     return redirect('/feed')
@@ -52,7 +69,7 @@ def dashboard(username):
         userid = db.getUserId(user_name)
         playlists = db.getMyPlaylist(userid)
         votes = db.getAllVotes()
-    except: 
+    except Exception as e: 
         return redirect('/')
 
     if user_name != username:
@@ -70,7 +87,7 @@ def profile():
     
     try:
         user_name = db.getLogin()
-    except:
+    except Exception as e:
         return redirect('/')
     
     return redirect('/{}'.format(user_name))
@@ -219,8 +236,13 @@ def ordercategory(category_name):
         userid = db.getUserId(user_name)
         category_id = db.getCategoryByName(category_name)
         votes = db.getAllVotes()
-
         ordered = db.orderByCategory(category_id, userid, profile)
+    
+    except Exception as e:
+        print("Exception: {}".format(e))
+        return redirect('/')
+        
+    finally:
         return render_template('videos.html',
         videos=ordered, 
         username=user_name,
@@ -228,11 +250,7 @@ def ordercategory(category_name):
         userid=userid,
         get_votes=db.calcVotes,
         check_voted=db.checkVote)
-
-    except Exception as e:
-        print("Exception: {}".format(e))
-        # return redirect('/')
-        return
+        
         
 @app.route('/order-by/my-profile/category/<category_name>')     
 def orderprofilecategory(category_name):
@@ -244,13 +262,13 @@ def orderprofilecategory(category_name):
         userid = db.getUserId(user_name)
         category_id = db.getCategoryByName(category_name)
         votes = db.getAllVotes()
+        ordered = db.orderByCategory(category_id, userid, profile)
 
     except Exception as e:
         print("Exception: {}".format(e))
         return redirect('/')
         
     finally:
-         ordered = db.orderByCategory(category_id, userid, profile)
          return render_template('dashboard.html', 
          playlists=ordered, 
          username=user_name,
@@ -265,13 +283,13 @@ def ordersaved(status):
         user_name = db.getLogin()
         userid = db.getUserId(user_name)
         votes = db.getAllVotes()
+        ordered = db.orderBySaved(userid, status)
 
     except Exception as e:
         print("Exception: {}".format(e))
         return redirect('/')
         
     finally:
-         ordered = db.orderBySaved(userid, status)
          return render_template('dashboard.html', 
          playlists=ordered, 
          username=user_name,
@@ -287,14 +305,13 @@ def orderuser(user_name):
         my_id = db.getUserId(my_username)
         users_id = db.getUserId(user_name)
         votes = db.getAllVotes()
+        ordered = db.orderByUser(users_id, my_id)
 
     except Exception as e:
         print("Exception: {}".format(e))
-        # return redirect('/')
-        return
-    
+        return redirect('/')
+        
     finally:
-        ordered = db.orderByUser(users_id, my_id)
         return render_template('videos.html',
         videos=ordered, 
         username=my_username,
@@ -322,6 +339,12 @@ def editplaylist():
     finally:
         return redirect('/{}'.format(user_name))
 
+@app.route('/logout')
+def logout():
+    #Clean the Login Variable
+    db.setLogin('')
+    
+    return redirect('/')
 
 if __name__ == '__main__':
     host = "127.0.0.1"
