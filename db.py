@@ -219,7 +219,7 @@ def orderByCategory(ordering, userid, profile):
     
     try:
         with db.cursor(pymysql.cursors.DictCursor) as cursor:
-          
+                    
           cursor.execute(sql)
           result = cursor.fetchall()
           
